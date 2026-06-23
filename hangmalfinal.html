@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hangman — Daily Challenge</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0f0e17;
+    --surface: #1a1827;
+    --surface2: #221f35;
+    --border: rgba(255,255,255,0.08);
+    --accent: #a78bfa;
+    --accent-glow: rgba(167,139,250,0.18);
+    --green: #34d399;
+    --green-bg: rgba(52,211,153,0.12);
+    --red: #f87171;
+    --red-bg: rgba(248,113,113,0.12);
+    --text: #f0eeff;
+    --text-muted: #8b8aad;
+    --text-dim: #4e4d6a;
+    --display: 'Syne', sans-serif;
+    --body: 'Inter', sans-serif;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem 3rem;
+    background-image:
+      radial-gradient(ellipse 60% 40% at 70% 0%, rgba(124,58,237,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 20% 80%, rgba(167,139,250,0.08) 0%, transparent 50%);
+  }
+  header {
+    width: 100%;
+    max-width: 640px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+  .logo { font-family: var(--display); font-size: 1.6rem; font-weight: 800; letter-spacing: -0.03em; }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .pill { font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; }
+  .pill.accent { background: var(--accent-glow); border-color: rgba(167,139,250,0.3); color: var(--accent); }
+  .word-nav { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+  .wslot { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; }
+  .wslot-num { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 14px; font-weight: 700; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-muted); transition: all .2s; }
+  .wslot.active .wslot-num { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 16px rgba(167,139,250,0.4); }
+  .wslot.won .wslot-num { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+  .wslot.lost .wslot-num { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+  .wslot-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--border); transition: background .2s; }
+  .wslot.active .wslot-dot { background: var(--accent); }
+  .wslot.won .wslot-dot { background: var(--green); }
+  .wslot.lost .wslot-dot { background: var(--red); }
+  .game-card { width: 100%; max-width: 640px; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1.25rem; }
+  .cat-badge { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); background: var(--accent-glow); border: 1px solid rgba(167,139,250,0.25); padding: 4px 14px; border-radius: 999px; }
+  .gallows-wrap { position: relative; }
+  .wrong-flash { animation: flash .3s ease; }
+  @keyframes flash { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+  .word-display { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .letter-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .letter-char { width: 36px; height: 44px; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 21px; font-weight: 700; color: var(--text); transition: all 0.3s cubic-bezier(.34,1.56,.64,1); transform: scale(0.8); opacity: 0; }
+  .letter-char.revealed { transform: scale(1); opacity: 1; }
+  .letter-char.wrong-reveal { color: var(--red); transform: scale(1); opacity: 1; }
+  .letter-line { width: 36px; height: 2px; background: var(--text-dim); border-radius: 2px; transition: background .3s; }
+  .letter-tile.revealed .letter-line { background: var(--accent); }
+  .letter-tile.wrong-reveal .letter-line { background: var(--red); }
+  .hint-box { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 16px; font-size: 13px; color: var(--text-muted); width: 100%; max-width: 420px; justify-content: center; }
+  .hint-box .hi { color: var(--accent); font-size: 14px; }
+  .attempts-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); }
+  .attempt-pip { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--text-dim); transition: all .25s; }
+  .attempt-pip.used { background: var(--red); border-color: var(--red); box-shadow: 0 0 6px rgba(248,113,113,0.4); }
+  .keyboard { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .kb-row { display: flex; justify-content: center; gap: 6px; }
+  .key { width: 42px; height: 48px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-family: var(--display); font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; text-transform: uppercase; }
+  .key:not(:disabled):hover { border-color: rgba(167,139,250,0.4); background: rgba(167,139,250,0.1); color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(167,139,250,0.15); }
+  .key:not(:disabled):active { transform: translateY(0); }
+  .key.correct { background: var(--green-bg); border-color: var(--green); color: var(--green); cursor: not-allowed; }
+  .key.wrong { background: transparent; border-color: var(--text-dim); color: var(--text-dim); cursor: not-allowed; text-decoration: line-through; }
+  .key:disabled { cursor: not-allowed; }
+  .status-msg { font-family: var(--display); font-size: 1.1rem; font-weight: 700; text-align: center; min-height: 28px; letter-spacing: -0.01em; }
+  .status-msg.win { color: var(--green); }
+  .status-msg.lose { color: var(--red); }
+  .answer-text { font-size: 13px; color: var(--text-dim); text-align: center; font-style: italic; min-height: 18px; }
+  .score-row { display: flex; gap: 24px; justify-content: center; }
+  .score-item { text-align: center; }
+  .score-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 2px; }
+  .score-val { font-family: var(--display); font-size: 1.4rem; font-weight: 800; color: var(--text); }
+  .btn-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .btn { padding: 10px 24px; border-radius: 999px; font-family: var(--body); font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; border: 1.5px solid var(--border); background: var(--surface2); color: var(--text-muted); }
+  .btn:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 4px 16px rgba(167,139,250,0.35); }
+  .btn.primary:hover { background: #c4b5fd; box-shadow: 0 6px 20px rgba(167,139,250,0.45); transform: translateY(-1px); }
+  .summary-overlay { display: none; position: fixed; inset: 0; background: rgba(15,14,23,0.85); backdrop-filter: blur(6px); z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
+  .summary-overlay.show { display: flex; }
+  .summary-card { background: var(--surface); border: 1px solid rgba(167,139,250,0.25); border-radius: 24px; padding: 2rem; width: 100%; max-width: 420px; text-align: center; animation: popIn .4s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes popIn { from{transform:scale(.85);opacity:0} to{transform:scale(1);opacity:1} }
+  .summary-emoji { font-size: 3rem; margin-bottom: 1rem; display: block; }
+  .summary-title { font-family: var(--display); font-size: 1.6rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: .4rem; }
+  .summary-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 1.5rem; }
+  .summary-words { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; }
+  .summary-word-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--surface2); border: 1px solid var(--border); }
+  .sw-word { font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: .04em; }
+  .sw-status { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+  .sw-status.won { background: var(--green-bg); color: var(--green); }
+  .sw-status.lost { background: var(--red-bg); color: var(--red); }
+  .summary-score { font-family: var(--display); font-size: 3rem; font-weight: 800; color: var(--accent); letter-spacing: -0.04em; margin-bottom: .2rem; }
+  .summary-score-label { font-size: 12px; color: var(--text-dim); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 1.5rem; }
+  .summary-comeback { font-size: 13px; color: var(--text-dim); margin-bottom: 1.5rem; }
+  .done-banner { display: none; width: 100%; max-width: 640px; background: var(--surface); border: 1px solid rgba(167,139,250,0.25); border-radius: 20px; padding: 2rem; text-align: center; gap: 1rem; flex-direction: column; align-items: center; }
+  .done-banner.show { display: flex; }
+  .done-banner h2 { font-family: var(--display); font-size: 1.4rem; font-weight: 800; letter-spacing: -0.03em; }
+  .done-banner p { font-size: 14px; color: var(--text-muted); }
+  @media (max-width: 480px) {
+    .key { width: 32px; height: 40px; font-size: 12px; }
+    .game-card { padding: 1.25rem; gap: 1rem; }
+    .letter-char { width: 28px; height: 36px; font-size: 16px; }
+    .letter-line { width: 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">hang<span>man</span></div>
+  <div class="header-right">
+    <div class="pill" id="date-pill"></div>
+    <div class="pill accent">Day <span id="day-num">1</span></div>
+  </div>
+</header>
+
+<div class="word-nav" id="word-nav"></div>
+
+<div class="done-banner" id="done-banner">
+  <span style="font-size:2.5rem">🎉</span>
+  <h2>You've finished today!</h2>
+  <p>Come back tomorrow for 3 fresh words.</p>
+  <button class="btn primary" id="done-view-btn">View results</button>
+</div>
+
+<div class="game-card" id="game-card">
+  <div class="cat-badge" id="cat-badge">Category</div>
+
+  <div class="gallows-wrap" id="gallows-wrap">
+    <svg id="gallows-svg" width="180" height="160" viewBox="0 0 180 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="10" y1="155" x2="170" y2="155" stroke="#4e4d6a" stroke-width="3" stroke-linecap="round"/>
+      <line x1="44" y1="155" x2="44" y2="8"   stroke="#4e4d6a" stroke-width="3" stroke-linecap="round"/>
+      <line x1="44" y1="8"   x2="112" y2="8"  stroke="#4e4d6a" stroke-width="3" stroke-linecap="round"/>
+      <line x1="112" y1="8"  x2="112" y2="28" stroke="#6d6b8a" stroke-width="2.5" stroke-linecap="round"/>
+      <circle id="p0" cx="112" cy="39" r="11" stroke="#a78bfa" stroke-width="2.5" fill="none" opacity="0"/>
+      <line   id="p1" x1="112" y1="50" x2="112" y2="96" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" opacity="0"/>
+      <line   id="p2" x1="112" y1="62" x2="92"  y2="80" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" opacity="0"/>
+      <line   id="p3" x1="112" y1="62" x2="132" y2="80" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" opacity="0"/>
+      <line   id="p4" x1="112" y1="96" x2="94"  y2="120" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" opacity="0"/>
+      <line   id="p5" x1="112" y1="96" x2="130" y2="120" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" opacity="0"/>
+    </svg>
+  </div>
+
+  <div class="word-display" id="word-display"></div>
+
+  <div class="attempts-row" id="attempts-row"></div>
+
+  <div class="hint-box">
+    <span class="hi">&#9670;</span>
+    <span id="hint-text">Loading...</span>
+  </div>
+
+  <div class="status-msg" id="status-msg"></div>
+  <div class="answer-text" id="answer-text"></div>
+
+  <div class="keyboard" id="keyboard"></div>
+
+  <div class="score-row">
+    <div class="score-item">
+      <div class="score-label">Score</div>
+      <div class="score-val" id="score-val">0</div>
+    </div>
+    <div class="score-item">
+      <div class="score-label">Wrong</div>
+      <div class="score-val" id="wrong-val">0<span style="font-size:.9rem;color:var(--text-dim)">/6</span></div>
+    </div>
+  </div>
+
+  <div class="btn-row" id="btn-row"></div>
+</div>
+
+<div class="summary-overlay" id="summary-overlay">
+  <div class="summary-card">
+    <span class="summary-emoji" id="sum-emoji">🎯</span>
+    <div class="summary-title" id="sum-title">Well played!</div>
+    <div class="summary-sub">Here's how you did today</div>
+    <div class="summary-words" id="sum-words"></div>
+    <div class="summary-score" id="sum-score">0</div>
+    <div class="summary-score-label">points earned today</div>
+    <div class="summary-comeback">Come back tomorrow for 3 new words!</div>
+    <button class="btn primary" onclick="document.getElementById('summary-overlay').classList.remove('show')">Close</button>
+  </div>
+</div>
+
+<script>
+const WB = [
+  // Body Parts
+  ["FINGER",   "Body",      "You use this to point at things"],
+  ["ELBOW",    "Body",      "The joint in the middle of your arm"],
+  ["ANKLE",    "Body",      "The joint connecting foot to leg"],
+  ["TONGUE",   "Body",      "Helps you taste and speak"],
+  ["EYEBROW",  "Body",      "The hair above your eye"],
+  ["STOMACH",  "Body",      "Where food goes after eating"],
+  ["FOREHEAD", "Body",      "The part of your face above the eyes"],
+  ["SHOULDER", "Body",      "Connects your arm to your body"],
+  ["EYELID",   "Body",      "Covers your eye when you sleep"],
+  ["THUMB",    "Body",      "The shortest and widest finger"],
+  ["WRIST",    "Body",      "The joint between hand and arm"],
+  ["CHEEK",    "Body",      "The soft side of your face"],
+  ["CHIN",     "Body",      "The bottom part of your face"],
+  ["PALM",     "Body",      "The inner flat part of your hand"],
+  ["SPINE",    "Body",      "The backbone running down your back"],
+  ["KNEE",     "Body",      "The joint in the middle of your leg"],
+  ["EARLOBE",  "Body",      "The soft bottom part of your ear"],
+  ["NOSTRIL",  "Body",      "One of the two holes in your nose"],
+
+  // Daily Actions
+  ["COOKING",   "Action",  "Making food using heat"],
+  ["RUNNING",   "Action",  "Moving fast on your feet"],
+  ["SLEEPING",  "Action",  "Resting with your eyes closed"],
+  ["READING",   "Action",  "Looking at written words"],
+  ["WRITING",   "Action",  "Making words on paper with a pen"],
+  ["WALKING",   "Action",  "Moving on foot at normal speed"],
+  ["TALKING",   "Action",  "Speaking words to someone"],
+  ["LAUGHING",  "Action",  "Making a happy sound when something is funny"],
+  ["DRINKING",  "Action",  "Swallowing a liquid"],
+  ["WASHING",   "Action",  "Cleaning something with water"],
+  ["SHOPPING",  "Action",  "Going to a store to buy things"],
+  ["DRIVING",   "Action",  "Controlling a vehicle on the road"],
+  ["JUMPING",   "Action",  "Pushing off the ground with both feet"],
+  ["SINGING",   "Action",  "Making music with your voice"],
+  ["SMILING",   "Action",  "Moving your lips up to show happiness"],
+  ["BREATHING", "Action",  "Taking air in and out of your lungs"],
+  ["SWIMMING",  "Action",  "Moving through water with your body"],
+  ["CLAPPING",  "Action",  "Hitting your hands together to make sound"],
+  ["CLIMBING",  "Action",  "Going up something using hands and feet"],
+  ["PUSHING",   "Action",  "Using force to move something away"],
+  ["PULLING",   "Action",  "Using force to bring something toward you"],
+  ["TYPING",    "Action",  "Pressing keys to write on a computer"],
+  ["SAVING",    "Action",  "Keeping money or data for later"],
+  ["SHARING",   "Action",  "Giving part of something to others"],
+  ["WAITING",   "Action",  "Staying in place until something happens"],
+  ["PLANNING",  "Action",  "Thinking about what to do in advance"],
+  ["PACKING",   "Action",  "Putting things into a bag or box"],
+  ["TEXTING",   "Action",  "Sending a written message on a phone"],
+  ["BUYING",    "Action",  "Paying money to get something"],
+  ["PAYING",    "Action",  "Giving money in exchange for something"],
+
+  // Feelings & Emotions
+  ["NERVOUS",   "Feeling", "Worried about something that might happen"],
+  ["EXCITED",   "Feeling", "Very happy and looking forward to something"],
+  ["BORED",     "Feeling", "Having nothing interesting to do"],
+  ["PROUD",     "Feeling", "Feeling good about an achievement"],
+  ["JEALOUS",   "Feeling", "Wanting what someone else has"],
+  ["LONELY",    "Feeling", "Feeling sad because you are alone"],
+  ["WORRIED",   "Feeling", "Thinking something bad might happen"],
+  ["GRATEFUL",  "Feeling", "Feeling thankful for something"],
+  ["CONFUSED",  "Feeling", "Not understanding something clearly"],
+  ["RELIEVED",  "Feeling", "Feeling better after something worrying ends"],
+  ["SHOCKED",   "Feeling", "Very surprised by something unexpected"],
+  ["ASHAMED",   "Feeling", "Feeling bad about something you did wrong"],
+  ["CURIOUS",   "Feeling", "Wanting to know more about something"],
+  ["CHEERFUL",  "Feeling", "In a happy and bright mood"],
+  ["HOPEFUL",   "Feeling", "Believing something good will happen"],
+  ["RELAXED",   "Feeling", "Calm and free from stress"],
+  ["STRESSED",  "Feeling", "Feeling under too much pressure"],
+  ["JEALOUS",   "Feeling", "Wishing you had what someone else has"],
+
+  // Kitchen & Cooking
+  ["FRYING",    "Kitchen", "Cooking food in hot oil in a pan"],
+  ["BOILING",   "Kitchen", "Heating liquid until it bubbles"],
+  ["CHOPPING",  "Kitchen", "Cutting food into small pieces"],
+  ["STIRRING",  "Kitchen", "Mixing food in a circular motion"],
+  ["BAKING",    "Kitchen", "Cooking food in an oven"],
+  ["PEELING",   "Kitchen", "Removing the skin from a fruit or vegetable"],
+  ["GRINDING",  "Kitchen", "Crushing something into a fine powder"],
+  ["SERVING",   "Kitchen", "Putting food on a plate for someone"],
+  ["TASTING",   "Kitchen", "Trying a small amount of food"],
+  ["POURING",   "Kitchen", "Letting a liquid flow into something"],
+  ["BLENDING",  "Kitchen", "Mixing ingredients together with a machine"],
+  ["ROASTING",  "Kitchen", "Cooking food in an oven with dry heat"],
+  ["STEAMING",  "Kitchen", "Cooking food using hot steam"],
+  ["SOAKING",   "Kitchen", "Leaving something in liquid for a long time"],
+  ["MEASURING", "Kitchen", "Finding out the exact amount of an ingredient"],
+  ["STRAINER",  "Kitchen", "A tool used to drain water from food"],
+  ["SPATULA",   "Kitchen", "A flat tool used to flip or stir food"],
+  ["GRATER",    "Kitchen", "A tool used to shred food into small pieces"],
+  ["LADLE",     "Kitchen", "A large spoon used to serve soup or stew"],
+
+  // School & Learning
+  ["HOMEWORK",  "School",  "Work given by a teacher to do at home"],
+  ["NOTEBOOK",  "School",  "A book of blank pages for writing notes"],
+  ["TEACHER",   "School",  "A person who explains and teaches students"],
+  ["STUDENT",   "School",  "A person who is learning at school"],
+  ["LIBRARY",   "School",  "A room full of books you can read or borrow"],
+  ["SUBJECT",   "School",  "A topic you study like maths or science"],
+  ["CHAPTER",   "School",  "A section of a book"],
+  ["DIAGRAM",   "School",  "A drawing that explains something"],
+  ["SPELLING",  "School",  "Writing the letters of a word correctly"],
+  ["GRAMMAR",   "School",  "The rules for how a language is used"],
+  ["REVISION",  "School",  "Going over what you have already learned"],
+  ["PROJECT",   "School",  "A piece of research or work on a topic"],
+  ["READING",   "School",  "Looking at and understanding written words"],
+  ["QUESTION",  "School",  "Something you ask to get information"],
+  ["ANSWER",    "School",  "A reply to a question"],
+  ["UNIFORM",   "School",  "The set of clothes worn at school"],
+  ["TIMETABLE", "School",  "A schedule showing when each class happens"],
+  ["SEMESTER",  "School",  "One half of the school year"],
+  ["SCIENCE",   "School",  "The study of the natural world"],
+  ["HISTORY",   "School",  "The study of past events"],
+  ["ENGLISH",   "School",  "The study of the English language"],
+  ["DRAWING",   "School",  "Making pictures using a pencil or pen"],
+  ["COMPASS",   "School",  "A tool used to draw circles"],
+
+  // Shopping & Money
+  ["DISCOUNT",  "Shopping","A reduction in the price of something"],
+  ["RECEIPT",   "Shopping","A paper showing what you bought and paid"],
+  ["CHECKOUT",  "Shopping","The place in a store where you pay"],
+  ["BUDGET",    "Shopping","A plan for how much money you will spend"],
+  ["REFUND",    "Shopping","Money given back when you return something"],
+  ["INVOICE",   "Shopping","A bill listing what was bought and the cost"],
+  ["CASHIER",   "Shopping","The person who takes your payment in a store"],
+  ["DELIVERY",  "Shopping","Bringing something to your home after ordering"],
+  ["EXCHANGE",  "Shopping","Swapping one item for a different one"],
+  ["PAYMENT",   "Shopping","The act of giving money for something"],
+  ["SAVINGS",   "Shopping","Money you have put aside for later"],
+  ["EXPENSE",   "Shopping","Money you spend on something"],
+  ["BARGAIN",   "Shopping","Something bought at a very good price"],
+  ["PURCHASE",  "Shopping","Something you have bought"],
+  ["CREDIT",    "Shopping","Borrowing money to buy now and pay later"],
+
+  // Health & Body Care
+  ["MEDICINE",  "Health",  "A substance taken to treat illness"],
+  ["EXERCISE",  "Health",  "Physical activity done to stay fit"],
+  ["BANDAGE",   "Health",  "A strip of cloth used to cover a wound"],
+  ["VACCINE",   "Health",  "An injection that protects against a disease"],
+  ["HYGIENE",   "Health",  "Keeping your body clean to stay healthy"],
+  ["HOSPITAL",  "Health",  "A building where sick people are treated"],
+  ["FEVER",     "Health",  "A high body temperature caused by illness"],
+  ["VITAMIN",   "Health",  "A substance found in food that keeps you healthy"],
+  ["ALLERGY",   "Health",  "When your body reacts badly to something"],
+  ["INSULIN",   "Health",  "A hormone that controls blood sugar"],
+  ["SYMPTOM",   "Health",  "A sign that you may be ill"],
+  ["THERAPY",   "Health",  "Treatment to help you recover"],
+  ["DOSAGE",    "Health",  "The amount of medicine to be taken"],
+  ["RECOVERY",  "Health",  "The process of getting better after illness"],
+  ["CHECKUP",   "Health",  "A visit to the doctor to make sure you are well"],
+  ["STRETCHING","Health",  "Gently extending your muscles"],
+  ["POSTURE",   "Health",  "The way you hold your body when sitting or standing"],
+
+  // Home & Daily Routine
+  ["ALARM",     "Routine", "A sound that wakes you up in the morning"],
+  ["SHOWER",    "Routine", "Washing your body under running water"],
+  ["TOOTHPASTE","Routine", "A paste used with a toothbrush to clean teeth"],
+  ["IRONING",   "Routine", "Using a hot iron to remove creases from clothes"],
+  ["LAUNDRY",   "Routine", "Clothes that need washing or have been washed"],
+  ["SWEEPING",  "Routine", "Cleaning the floor with a broom"],
+  ["DUSTING",   "Routine", "Wiping dust off furniture and surfaces"],
+  ["GROCERY",   "Routine", "Food and household items bought from a store"],
+  ["COMMUTE",   "Routine", "Travelling to and from work or school daily"],
+  ["BEDTIME",   "Routine", "The usual time you go to sleep"],
+  ["BREAKFAST", "Routine", "The first meal of the day"],
+  ["LUNCHBOX",  "Routine", "A container used to carry food to school or work"],
+  ["SCHEDULE",  "Routine", "A plan that shows when things will happen"],
+  ["REMINDER",  "Routine", "Something that helps you remember to do a task"],
+  ["CALENDAR",  "Routine", "A chart showing all the days and months"],
+  ["MORNING",   "Routine", "The early part of the day after you wake up"],
+  ["EVENING",   "Routine", "The time late in the day before night"],
+
+  // Transport & Travel
+  ["TRAFFIC",   "Travel",  "Cars and vehicles moving on the road"],
+  ["LUGGAGE",   "Travel",  "Bags and suitcases you take on a trip"],
+  ["PASSPORT",  "Travel",  "An official document used to travel abroad"],
+  ["BOARDING",  "Travel",  "Getting on a plane, bus, or train"],
+  ["JOURNEY",   "Travel",  "A trip from one place to another"],
+  ["STATION",   "Travel",  "A place where buses or trains stop"],
+  ["PLATFORM",  "Travel",  "The area where you wait for a train"],
+  ["HIGHWAY",   "Travel",  "A main road for fast long-distance travel"],
+  ["ROUNDABOUT","Travel",  "A circular junction where roads meet"],
+  ["CROSSING",  "Travel",  "A place on the road where people can cross safely"],
+  ["SEATBELT",  "Travel",  "A strap worn in a vehicle for safety"],
+  ["PETROL",    "Travel",  "Fuel used to power cars and motorbikes"],
+  ["PARKING",   "Travel",  "Leaving your vehicle in a specific spot"],
+  ["DEPARTURE", "Travel",  "The time or act of leaving a place"],
+  ["ARRIVAL",   "Travel",  "The time or act of reaching a place"],
+
+  // Technology & Communication
+  ["INTERNET",  "Tech",    "A global network connecting computers"],
+  ["PASSWORD",  "Tech",    "A secret word used to access an account"],
+  ["DOWNLOAD",  "Tech",    "Copying a file from the internet to your device"],
+  ["CHARGING",  "Tech",    "Putting power into a battery"],
+  ["WIRELESS",  "Tech",    "Connecting without physical cables"],
+  ["KEYBOARD",  "Tech",    "A set of keys used to type on a computer"],
+  ["MONITOR",   "Tech",    "The screen of a computer"],
+  ["PRINTER",   "Tech",    "A machine that prints text or images on paper"],
+  ["BROWSER",   "Tech",    "A program used to visit websites"],
+  ["CONTACT",   "Tech",    "A person saved in your phone"],
+  ["MESSAGE",   "Tech",    "A written or spoken piece of communication"],
+  ["PROFILE",   "Tech",    "Your personal page on a website or app"],
+  ["STORAGE",   "Tech",    "The space available to save files or data"],
+  ["NETWORK",   "Tech",    "A group of connected computers or devices"],
+  ["UPLOAD",    "Tech",    "Sending a file from your device to the internet"],
+  ["SETTINGS",  "Tech",    "Options to change how a device or app works"],
+  ["NOTIFICATION","Tech",  "An alert or message from an app"],
+  ["BATTERY",   "Tech",    "A device that stores electrical energy"],
+
+  // Weather & Environment
+  ["THUNDER",   "Weather", "The loud sound that follows lightning"],
+  ["LIGHTNING", "Weather", "A bright flash of electricity in the sky"],
+  ["HUMIDITY",  "Weather", "The amount of moisture in the air"],
+  ["FORECAST",  "Weather", "A prediction of what the weather will be"],
+  ["DRIZZLE",   "Weather", "Very light rain with tiny drops"],
+  ["BLIZZARD",  "Weather", "A heavy snowstorm with strong wind"],
+  ["SUNSHINE",  "Weather", "The light and warmth from the sun"],
+  ["RAINBOW",   "Weather", "An arc of colours seen after rain"],
+  ["CLOUDY",    "Weather", "The sky is covered with clouds"],
+  ["WINDY",     "Weather", "There is a lot of strong wind"],
+  ["FREEZING",  "Weather", "Extremely cold, below zero degrees"],
+  ["FLOODING",  "Weather", "Water covering land that is normally dry"],
+  ["TYPHOON",   "Weather", "A very powerful tropical storm"],
+  ["HEATWAVE",  "Weather", "A long period of very hot weather"],
+  ["SNOWFALL",  "Weather", "Snow coming down from the sky"],
+  ["FOGGY",     "Weather", "The air is thick with tiny water droplets"],
+  ["MONSOON",   "Weather", "A season of heavy regular rainfall"],
+];
+
+const EPOCH = new Date("2024-01-01").getTime();
+const KB_ROWS = ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
+
+// Remove duplicates
+const seen = new Set();
+const WORDS = WB.filter(x => { if(seen.has(x[0])) return false; seen.add(x[0]); return true; });
+
+function dayNum(){ return Math.floor((Date.now()-EPOCH)/86400000); }
+function todayStr(){ return new Date().toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}); }
+function loadS(){ try{ return JSON.parse(localStorage.getItem("hm_v3")||"null"); }catch{ return null; } }
+function saveS(s){ try{ localStorage.setItem("hm_v3",JSON.stringify(s)); }catch{} }
+function getUsed(){ try{ return JSON.parse(localStorage.getItem("hm_v3_used")||"[]"); }catch{ return []; } }
+function markUsed(ws){ const u=getUsed(); ws.forEach(w=>{ if(!u.includes(w)) u.push(w); }); try{ localStorage.setItem("hm_v3_used",JSON.stringify(u)); }catch{} }
+
+function pickWords(){
+  const used = new Set(getUsed());
+  let avail = WORDS.filter(x=>!used.has(x[0]));
+  if(avail.length < 3){ localStorage.removeItem("hm_v3_used"); avail = [...WORDS]; }
+  let seed = dayNum()*9301+49297;
+  const sh = [...avail];
+  for(let i=sh.length-1;i>0;i--){ seed=(seed*9301+49297)%233280; const j=Math.floor((seed/233280)*(i+1)); [sh[i],sh[j]]=[sh[j],sh[i]]; }
+  const ch = sh.slice(0,3);
+  markUsed(ch.map(x=>x[0]));
+  return ch;
+}
+
+function initState(){
+  const words = pickWords();
+  return { dayKey:"hm3_"+dayNum(), dayNum:dayNum(), words, current:0, games:words.map(()=>({guessed:[],wrong:0,status:"playing"})), score:0 };
+}
+
+let S;
+const sv = loadS();
+if(sv && sv.dayKey==="hm3_"+dayNum()){ S=sv; const i=S.games.findIndex(g=>g.status==="playing"); if(i>=0) S.current=i; }
+else{ S=initState(); saveS(S); }
+
+const cg = () => S.games[S.current];
+const cw = () => S.words[S.current];
+
+function renderGallows(n){ for(let i=0;i<6;i++) document.getElementById("p"+i).style.opacity = i<n?1:0; }
+
+function renderWordDisplay(){
+  const g=cg(), word=cw()[0];
+  let h="";
+  for(const ch of word){
+    const rev = g.guessed.includes(ch) || g.status!=="playing";
+    const wrongRev = g.status==="lost" && !g.guessed.includes(ch);
+    h += `<div class="letter-tile ${rev?"revealed":""} ${wrongRev?"wrong-reveal":""}">
+      <div class="letter-char ${rev?"revealed":""} ${wrongRev?"wrong-reveal":""}">${rev?ch:""}</div>
+      <div class="letter-line"></div>
+    </div>`;
+  }
+  document.getElementById("word-display").innerHTML = h;
+}
+
+function renderAttempts(){
+  const g=cg();
+  let h=`<span style="font-size:12px;color:var(--text-dim);margin-right:4px">Attempts</span>`;
+  for(let i=0;i<6;i++) h += `<div class="attempt-pip ${i<g.wrong?"used":""}"></div>`;
+  h += `<span style="font-size:12px;color:var(--text-dim);margin-left:4px">${6-g.wrong} left</span>`;
+  document.getElementById("attempts-row").innerHTML = h;
+}
+
+function renderKeyboard(){
+  const g=cg();
+  let h="";
+  for(const row of KB_ROWS){
+    h+=`<div class="kb-row">`;
+    for(const ch of row){
+      const tried = g.guessed.includes(ch);
+      const cls = tried ? (cw()[0].includes(ch)?"correct":"wrong") : "";
+      h += `<button class="key ${cls}" onclick="guess('${ch}')" ${tried||g.status!=="playing"?"disabled":""}>${ch}</button>`;
+    }
+    h+=`</div>`;
+  }
+  document.getElementById("keyboard").innerHTML = h;
+}
+
+function renderWordNav(){
+  let h="";
+  S.games.forEach((g,i)=>{
+    let cls = i===S.current?"active" : g.status==="won"?"won" : g.status==="lost"?"lost" : "";
+    h+=`<div class="wslot ${cls}" onclick="goWord(${i})"><div class="wslot-num">${i+1}</div><div class="wslot-dot"></div></div>`;
+  });
+  document.getElementById("word-nav").innerHTML = h;
+}
+
+function renderStatus(){
+  const g=cg();
+  const sm=document.getElementById("status-msg");
+  const at=document.getElementById("answer-text");
+  const br=document.getElementById("btn-row");
+  sm.className="status-msg"; at.textContent="";
+  if(g.status==="won"){ sm.textContent="Correct! +"+Math.max(1,6-g.wrong)+" pts"; sm.className="status-msg win"; renderBtns(); }
+  else if(g.status==="lost"){ sm.textContent="Better luck next time!"; sm.className="status-msg lose"; at.textContent="The word was: "+cw()[0]; renderBtns(); }
+  else{ sm.textContent=""; br.innerHTML=""; }
+}
+
+function renderBtns(){
+  const br=document.getElementById("btn-row");
+  const allDone = S.games.every(g=>g.status!=="playing");
+  if(allDone){
+    br.innerHTML=`<button class="btn primary" onclick="showSummary()">See results &#8599;</button>`;
+  } else {
+    const next=S.games.findIndex(g=>g.status==="playing");
+    if(next>=0&&next!==S.current) br.innerHTML=`<button class="btn primary" onclick="goWord(${next})">Next word &#8594;</button>`;
+    else br.innerHTML="";
+  }
+}
+
+function renderAll(){
+  const g=cg(); const w=cw();
+  document.getElementById("day-num").textContent = S.dayNum+1;
+  document.getElementById("date-pill").textContent = todayStr();
+  document.getElementById("cat-badge").textContent = w[1];
+  document.getElementById("hint-text").textContent = w[2];
+  document.getElementById("score-val").textContent = S.score;
+  document.getElementById("wrong-val").innerHTML = g.wrong+`<span style="font-size:.9rem;color:var(--text-dim)">/6</span>`;
+  renderGallows(g.wrong);
+  renderWordDisplay();
+  renderAttempts();
+  renderKeyboard();
+  renderWordNav();
+  renderStatus();
+}
+
+function guess(ch){
+  const g=cg(); if(g.status!=="playing"||g.guessed.includes(ch)) return;
+  g.guessed.push(ch);
+  const word=cw()[0];
+  if(!word.includes(ch)){
+    g.wrong++;
+    if(g.wrong>=6) g.status="lost";
+    else{ const w=document.getElementById("gallows-wrap"); w.classList.add("wrong-flash"); setTimeout(()=>w.classList.remove("wrong-flash"),300); }
+  } else {
+    if(word.split("").every(c=>g.guessed.includes(c))){ g.status="won"; S.score+=Math.max(1,6-g.wrong); }
+  }
+  saveS(S); renderAll();
+}
+
+function goWord(i){ S.current=i; saveS(S); renderAll(); }
+
+function showSummary(){
+  const wins = S.games.filter(g=>g.status==="won").length;
+  document.getElementById("sum-emoji").textContent = ["😅","😊","👏","🎉"][wins]||"🎯";
+  document.getElementById("sum-title").textContent = ["Don't give up!","Nice try!","So close!","Perfect Day!"][wins];
+  document.getElementById("sum-score").textContent = S.score;
+  let h="";
+  S.words.forEach((w,i)=>{
+    const g=S.games[i];
+    h+=`<div class="summary-word-row"><span class="sw-word">${w[0]}</span><span class="sw-status ${g.status}">${g.status==="won"?"Won ✓":"Lost ✗"}</span></div>`;
+  });
+  document.getElementById("sum-words").innerHTML=h;
+  document.getElementById("summary-overlay").classList.add("show");
+}
+
+const allDone = S.games.every(g=>g.status!=="playing");
+if(allDone){
+  document.getElementById("done-banner").classList.add("show");
+  document.getElementById("game-card").style.display="none";
+  document.getElementById("done-view-btn").onclick = () => {
+    document.getElementById("game-card").style.display="flex";
+    document.getElementById("done-banner").classList.remove("show");
+    showSummary();
+  };
+}
+
+document.addEventListener("keydown", e=>{
+  const ch=e.key.toUpperCase();
+  if(ch.length===1&&ch>="A"&&ch<="Z") guess(ch);
+  if(e.key==="Escape") document.getElementById("summary-overlay").classList.remove("show");
+});
+
+renderAll();
+</script>
+</body>
+</html>
